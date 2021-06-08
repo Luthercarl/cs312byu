@@ -75,6 +75,53 @@ class TSPSolver:
 		algorithm</returns> 
 	'''
 
+	def gather(self, matrix, cities):
+
+		notInPath = []
+		notInPath = [i for i in range(len(cities))]
+
+		toBreak = False
+		# find two things that point to each other
+		for i in range(len(cities)):
+			if toBreak == True:
+				break
+
+			for j in range(len(cities)):
+				if j == i:
+					continue
+
+				if matrix[i,j] != math.inf and matrix[j,i] != math.inf:
+					edgePath = [(i,j), (j,i)] # this path is made up of the edges not the nodes
+					nodePath = [i,j]
+					notInPath.remove(i)
+					notInPath.remove(j)
+					toBreak = True
+					break
+
+		# for each edge find a node that can replace the edge
+		e = -1
+		while e < len(edgePath) - 1:
+			e += 1
+
+			for i in notInPath:
+
+				if matrix[edgePath[e][0], i] != math.inf and matrix[i, edgePath[e][1]] != math.inf:
+					edgePath.insert(e, (i, edgePath[e][1]))
+					edgePath.insert(e, (edgePath[e+1][0], i))
+					del edgePath[e+2]
+					nodePath.insert(e+1, i)
+					notInPath.remove(i)
+					e = -1
+					break
+
+			if len(nodePath) == len(cities):
+				break
+
+
+		return nodePath
+
+	
+	
 	def greedy( self,time_allowance=60.0 ):
 		start_time = time.time()
 		results = {}
