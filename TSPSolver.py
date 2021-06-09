@@ -78,7 +78,6 @@ class TSPSolver:
 
 	def gather(self, matrix, cities):
 
-		notInPath = []
 		notInPath = [i for i in range(len(cities))]
 
 		toBreak = False
@@ -99,24 +98,31 @@ class TSPSolver:
 					toBreak = True
 					break
 
-		# for each edge find a node that can replace the edge
-		e = -1
-		while e < len(edgePath) - 1:
-			e += 1
+		# for each node find what edge it matches too best and insert
 
-			for i in notInPath:
+		for node in notInPath:
+			bestEdge = -1  # store the edge index in edge path
+			bestCost = math.inf  # the best cost increase to add the node
 
-				if matrix[edgePath[e][0], i] != math.inf and matrix[i, edgePath[e][1]] != math.inf:
-					edgePath.insert(e, (i, edgePath[e][1]))
-					edgePath.insert(e, (edgePath[e+1][0], i))
-					del edgePath[e+2]
-					nodePath.insert(e+1, i)
-					notInPath.remove(i)
-					e = -1
-					break
+			# find the edge that the node fits into best
+			for edge in edgePath:
+				originalCost = matrix[edge[0], edge[1]]
+				newCost = matrix[edge[0], node] + matrix[node, edge[1]]
+				additionalCost = newCost - originalCost
 
-			if len(nodePath) == len(cities):
-				break
+				if additionalCost < bestCost:
+					bestCost = additionalCost
+					bestEdge = edge
+
+			# put the node into the path of edges and node path
+			if bestCost != math.inf:
+				edgeIndex = edgePath.index(bestEdge)
+				edgePath.insert(edgeIndex, (node, bestEdge[1]))
+				edgePath.insert(edgeIndex, (bestEdge[0], node))
+				del edgePath[edgeIndex + 2]
+				nodePath.insert(edgeIndex + 1, node)
+			else:
+				b = 0
 
 
 		return nodePath
