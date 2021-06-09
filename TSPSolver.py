@@ -273,6 +273,55 @@ class TSPSolver:
 		results['pruned'] = pruned
 		return results
 
+	def two_opt(self, solution):
+        	path = solution.path
+        	cost = solution.bound
+        	improved = True
+        	# while route keeps changing
+	        while improved:
+        	    improved = False
+	            # for all edges
+        	    for i in range(1, len(path) - 2):
+                	# for all other edges
+	                for j in range(i + 1, len(path)):
+        	            if j - i == 1:
+                	        continue
+	                    cities = self._scenario.getCities()
+        	            newPath1 = path.copy()
+                	    # make new array of cities {1,2,7,5,8}
+	                    for k in range(j-i):
+        	                newPath1[i+k+1] = path[j-k]
+                	    # make other array
+	                    newPath2 = path.copy()
+        	            for m in range(len(path)):
+                	        if m > 0:
+                        	    newPath2[m] = newPath1[len(newPath1) - m]
+	                    # get cost of visiting cities
+        	            path1Cost = self.generateCost(newPath1)
+                	    path2Cost = self.generateCost(newPath2)
+	                    newCost = min(path1Cost, path2Cost)
+        	            newPath = newPath1
+                	    if newCost == path2Cost:
+                        	newPath = newPath2
+	                    #  if new cost is less than old cost
+        	            if newCost < cost:
+                	        # update path, cost
+                        	cost = newCost
+                        	path = newPath
+                        	improved = True
+        	solution.path = path
+        	solution.cost = cost
+
+    	def generateCost(self, path):
+        	cost = 0
+	        cities = self._scenario.getCities()
+        	for i in range(len(path)):
+	            city = cities[path[i]]
+        	    nextCity = cities[path[0]]
+	            if i != len(path) - 1:
+        	        nextCity = cities[path[i+1]]
+	            cost += city.costTo(nextCity)
+        	return cost
 
 	def chooseCity(self, matrix, currentrow,destrow):
 		newmatrix= copy.deepcopy(matrix)
