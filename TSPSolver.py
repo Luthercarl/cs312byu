@@ -16,6 +16,7 @@ import copy
 class TSPSolver:
 	def __init__( self, gui_view ):
 		self._scenario = None
+		self.passNode = None
 
 	def setupWithScenario( self, scenario ):
 		self._scenario = scenario
@@ -123,6 +124,7 @@ class TSPSolver:
 	
 	
 	def greedy( self,time_allowance=60.0 ):
+		return self.greedy_wNode(time_allowance)
 		start_time = time.time()
 		results = {}
 		cities = self._scenario.getCities
@@ -173,7 +175,108 @@ class TSPSolver:
 		not include the initial BSSF), the best solution found, and three more ints: 
 		max queue size, total number of states created, and number of pruned states.</returns> 
 	'''
-		
+
+	def greedy_wNode(self,time_allowance=60.0):
+		start_time = time.time()
+		results = {}
+		default = self.defaultRandomTour()
+		# greedy = self.greedy()
+		# lowest_cost = greedy['cost']
+		num_updates = 0
+		path_not_found = True
+		max_heap_len = 1
+		pruned = 0
+		num_sul = 0
+		count = 0
+		total_created = 0
+		bssf = math.inf
+		finalnode = node()
+		heap = []
+		heapq.heapify(heap)
+		solution = node()
+		solutions = []
+
+		cities = self._scenario.getCities()
+		ncities = len(cities)
+		foundTour = False
+
+		masterMatrix = self.createMatrix(cities)
+		mutationMatrix = copy.deepcopy(masterMatrix)
+		currentCities = []
+		for x in range(0, len(masterMatrix)):
+			currentCities.append(x)
+
+		bound = self.reduceMatrix(mutationMatrix, currentCities)
+
+		currentNode = node()
+		currentNode.current_city = 0
+		currentNode.bound = bound
+		currentNode.path = [0]
+		currentNode.RCM = copy.deepcopy(mutationMatrix)
+		currentNode.remaining_cities = []
+
+		for x in range(1, len(masterMatrix)):
+			currentNode.remaining_cities.append(x)
+		greedyNode = greedy_node()
+		greedyNode.current_node = currentNode
+		heapq.heappush(heap, greedyNode)
+
+		while path_not_found and len(heap) and time.time() - start_time < time_allowance:
+			greedyNode = heapq.heappop(heap)
+			# print(currentNode.bound)
+			if greedyNode.current_node.bound > bssf:
+				pruned += 1
+
+			else:
+				for x in range(0, len(greedyNode.current_node.remaining_cities)):
+					total_created += 1
+					newnode = node()
+					newnode.remaining_cities = []
+					for y in range(0, len(greedyNode.current_node.remaining_cities)):
+						if x != y:
+							newnode.remaining_cities.append(greedyNode.current_node.remaining_cities[y])
+						else:
+							newnode.path = copy.deepcopy(greedyNode.current_node.path)
+							newnode.path.append(greedyNode.current_node.remaining_cities[y])
+							newnode.current_city = greedyNode.current_node.remaining_cities[y]
+					newnode.bound = greedyNode.current_node.bound + greedyNode.current_node.RCM[greedyNode.current_node.current_city][
+						greedyNode.current_node.remaining_cities[x]]
+					newnode.RCM = self.chooseCity(greedyNode.current_node.RCM, greedyNode.current_node.current_city,
+												  greedyNode.current_node.remaining_cities[x])
+					if newnode.remaining_cities != 0:
+						newnode.bound = newnode.bound + self.reduceMatrix(newnode.RCM, newnode.remaining_cities)
+
+					if newnode.bound  == math.inf:
+						pruned+=1
+					else:
+						if len(newnode.remaining_cities) == 0:
+							num_sul += 1
+							solution = newnode
+							self.passNode = solution
+							bssf = newnode.bound
+							path_not_found = False
+						else:
+							newGreedyNode = greedy_node()
+							newGreedyNode.current_node = newnode
+							heapq.heappush(heap, newGreedyNode)
+							if len(heap) > max_heap_len:
+								max_heap_len = len(heap)
+					count += 1
+		end_time = time.time()
+		results['cost'] = solution.bound if foundTour else bssf
+		results['time'] = end_time - start_time
+		results['count'] = num_sul
+		if foundTour:
+			cityList = [cities[i] for i in solution.path]
+			results['soln'] = TSPSolution(cityList)
+		else:
+			results['soln'] = default['soln']
+
+		results['max'] = max_heap_len
+		results['total'] = total_created
+		results['pruned'] = pruned
+		return results
+
 	def branchAndBound( self, time_allowance=60.0 ):
 		start_time = time.time()
 		results = {}
@@ -274,54 +377,55 @@ class TSPSolver:
 		return results
 
 	def two_opt(self, solution):
-        	path = solution.path
-        	cost = solution.bound
-        	improved = True
-        	# while route keeps changing
-	        while improved:
-        	    improved = False
-	            # for all edges
-        	    for i in range(1, len(path) - 2):
-                	# for all other edges
-	                for j in range(i + 1, len(path)):
-        	            if j - i == 1:
-                	        continue
-	                    cities = self._scenario.getCities()
-        	            newPath1 = path.copy()
-                	    # make new array of cities {1,2,7,5,8}
-	                    for k in range(j-i):
-        	                newPath1[i+k+1] = path[j-k]
-                	    # make other array
-	                    newPath2 = path.copy()
-        	            for m in range(len(path)):
-                	        if m > 0:
-                        	    newPath2[m] = newPath1[len(newPath1) - m]
-	                    # get cost of visiting cities
-        	            path1Cost = self.generateCost(newPath1)
-                	    path2Cost = self.generateCost(newPath2)
-	                    newCost = min(path1Cost, path2Cost)
-        	            newPath = newPath1
-                	    if newCost == path2Cost:
-                        	newPath = newPath2
-	                    #  if new cost is less than old cost
-        	            if newCost < cost:
-                	        # update path, cost
-                        	cost = newCost
-                        	path = newPath
-                        	improved = True
-        	solution.path = path
-        	solution.cost = cost
+		path = solution.path
+		cost = solution.bound
+		improved = True
+		# while route keeps changing
+		while improved:
+			improved = False
+			# for all edges
+			for i in range(1, len(path) - 2):
+				# for all other edges
+				for j in range(i + 1, len(path)):
+					if j - i == 1:
+						continue
+					cities = self._scenario.getCities()
+					newPath1 = path.copy()
+					# make new array of cities {1,2,7,5,8}
+					for k in range(j-i):
+						newPath1[i+k+1] = path[j-k]
+					# make other array
+					newPath2 = path.copy()
+					for m in range(len(path)):
+						if m > 0:
+							newPath2[m] = newPath1[len(newPath1) - m]
+					# get cost of visiting cities
+					path1Cost = self.generateCost(newPath1)
+					path2Cost = self.generateCost(newPath2)
+					newCost = min(path1Cost, path2Cost)
+					newPath = newPath1
+					if newCost == path2Cost:
+						newPath = newPath2
+					#  if new cost is less than old cost
+					if newCost < cost:
+						# update path, cost
+						cost = newCost
+						path = newPath
+						improved = True
+		solution.path = path
+		solution.cost = cost
+		return solution
 
-    	def generateCost(self, path):
-        	cost = 0
-	        cities = self._scenario.getCities()
-        	for i in range(len(path)):
-	            city = cities[path[i]]
-        	    nextCity = cities[path[0]]
-	            if i != len(path) - 1:
-        	        nextCity = cities[path[i+1]]
-	            cost += city.costTo(nextCity)
-        	return cost
+	def generateCost(self, path):
+		cost = 0
+		cities = self._scenario.getCities()
+		for i in range(len(path)):
+			city = cities[path[i]]
+			nextCity = cities[path[0]]
+			if i != len(path) - 1:
+				nextCity = cities[path[i+1]]
+			cost += city.costTo(nextCity)
+		return cost
 
 	def chooseCity(self, matrix, currentrow,destrow):
 		newmatrix= copy.deepcopy(matrix)
@@ -380,6 +484,104 @@ class TSPSolver:
 	'''
 		
 	def fancy( self,time_allowance=60.0 ):
+		start_time = time.time()
+		results = {}
+		default = self.greedy()
+		#greedy = self.greedy()
+		#lowest_cost = greedy['cost']
+		num_updates = 0
+		max_heap_len = 1
+		pruned = 0
+		num_sul = 0
+		count = 0
+		total_created = 0
+		twoOptNode = self.two_opt(self.passNode)
+		bssf = twoOptNode.cost#math.inf
+		finalnode = node()
+		heap = []
+		heapq.heapify(heap)
+		solution = node()
+		solutions = []
+
+		cities = self._scenario.getCities()
+		ncities = len(cities)
+		foundTour = False
+
+		masterMatrix = self.createMatrix(cities)
+		mutationMatrix = copy.deepcopy(masterMatrix)
+		currentCities = []
+		for x in range(0, len(masterMatrix)):
+			currentCities.append(x)
+
+		bound = self.reduceMatrix(mutationMatrix,currentCities)
+
+		currentNode = node()
+		currentNode.current_city = 0
+		currentNode.bound = bound
+		currentNode.path = [0]
+		currentNode.RCM = copy.deepcopy(mutationMatrix)
+		currentNode.remaining_cities = []
+
+		for x in range(1, len(masterMatrix)):
+			currentNode.remaining_cities.append(x)
+
+		heapq.heappush(heap,currentNode)
+
+
+
+
+		while len(heap) and time.time()-start_time < time_allowance:
+			currentNode = heapq.heappop(heap)
+			#print(currentNode.bound)
+			if currentNode.bound > bssf:
+				pruned+=1
+
+			else:
+				for x in range(0,len(currentNode.remaining_cities)):
+					total_created+=1
+					newnode = node()
+					newnode.remaining_cities = []
+					for y in range(0, len(currentNode.remaining_cities)):
+						if x != y:
+							newnode.remaining_cities.append(currentNode.remaining_cities[y])
+						else:
+							newnode.path = copy.deepcopy(currentNode.path)
+							newnode.path.append(currentNode.remaining_cities[y])
+							newnode.current_city = currentNode.remaining_cities[y]
+					newnode.bound = currentNode.bound+currentNode.RCM[currentNode.current_city][currentNode.remaining_cities[x]]
+					newnode.RCM = self.chooseCity(currentNode.RCM,currentNode.current_city,currentNode.remaining_cities[x])
+					if newnode.remaining_cities != 0:
+
+						newnode.bound = newnode.bound+ self.reduceMatrix(newnode.RCM,newnode.remaining_cities)
+
+
+					if newnode.bound  > bssf:
+						pruned+=1
+					else:
+						if len(newnode.remaining_cities) == 0:
+							num_sul+=1
+							solution=self.two_opt(newnode)
+							bssf = solution.bound
+							foundTour = True
+						else:
+							heapq.heappush(heap,newnode)
+							if len(heap) > max_heap_len:
+								max_heap_len = len(heap)
+					count+=1
+		end_time = time.time()
+		results['cost'] = solution.bound if foundTour else bssf
+		results['time'] = end_time - start_time
+		results['count'] = num_sul
+		if foundTour:
+			cityList = [cities[i] for i in solution.path]
+			results['soln'] = TSPSolution(cityList)
+		else:
+			results['soln'] = default['soln']
+
+		results['max'] = max_heap_len
+		results['total'] = total_created
+		results['pruned'] = pruned
+		return results
 		pass
 		
 
@@ -400,3 +602,12 @@ class node:
 		return self.bound < obj1.bound
 
 
+class greedy_node:
+	def __init__(self,
+				 current_node = None):
+		self.current_node = current_node
+	def __lt__(self,obj1):
+		if len(self.current_node.path) != len(obj1.current_node.path):
+			return len(self.current_node.path) > len(obj1.current_node.path)
+		else:
+			return self.current_node.bound < obj1.current_node.bound
