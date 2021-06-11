@@ -170,6 +170,90 @@ class TSPSolver:
 		results['pruned'] = None
 
 		return results
+	
+	
+	def greedy2( self,time_allowance=60.0 ):
+		start_time = time.time()
+		results = {}
+		cities = self._scenario.getCities()
+		ncities = len(cities)
+
+		foundTour = False
+		count = 0
+		bssf = None
+
+		masterMatrix = np.array(self.createMatrix(cities))
+		path = [] # create a pathway
+
+
+		# O: repeats the for loop worst case for each city as a new start so O(n*n^3) = O(n^4)
+		# keep starting from new points intil solution is found
+		while not foundTour:
+			foundTour = True
+			path = [] # reset the path
+
+			# increment the starting spot
+			currentSpot = count  # count starts at 0, just start looking from first city
+			if currentSpot >= len(cities): # quit if we have cycled through all the spots
+				foundTour = False
+				break
+			count +=1
+
+			cityMatrix = np.array(copy.deepcopy(masterMatrix))  # create a copy
+			cityMatrix[currentSpot, :] = math.inf
+			path.append(currentSpot)  # add the first spot
+
+			# O: finds the min of all the columns for each city so O(n*n^2)
+			# for each city find the cheapest way to get to it
+			for i in range(len(cities) - 1 ):
+				# O: finds the minimum of every column in the matrix so O(n^2)
+				min_index_column = np.argmin(cityMatrix, axis = 0) # this will return the index of the minimum values
+				min_spot = min_index_column[currentSpot]
+
+				# what if all are infinity? then the minumum spot will be infinity and need to restart
+				if cityMatrix[min_spot][currentSpot] == math.inf:
+					# if i != len(cities) - 1 :
+					foundTour = False
+					break
+
+				cityMatrix[currentSpot][min_spot] = math.inf # inf out backtrace
+				cityMatrix[:, currentSpot] = math.inf # we don't want to come back to the city again
+				cityMatrix[min_spot, :] = math.inf
+				currentSpot = min_spot # update current spot
+				path.append(currentSpot) #add the new spot to the path
+
+				if i == len(cities) - 2:
+					if masterMatrix[path[0]][path[len(path) - 1]] == math.inf:
+						foundTour = False
+
+
+		# since the path is backwards because we found the best node to come from we need to reverse the path
+		route = []
+		i = ncities - 1
+		while i >= 0:
+			if i < len(path):
+				route.append(cities[path[i]]) # this creates a route with the cities, we are adding the cities in the order of the path
+			i -= 1
+
+
+		# don't calculate the bssf if none was found
+		if len(route) != 0:
+			bssf = TSPSolution(route)
+
+		end_time = time.time()
+
+
+		results['cost'] = bssf.cost if foundTour else math.inf
+		results['time'] = end_time - start_time
+		results['count'] = count
+		results['soln'] = bssf if foundTour else None
+		results['max'] = None
+		results['total'] = None
+		results['pruned'] = None
+
+		return results
+	
+	
 	''' <summary>
 		This is the entry point for the branch-and-bound algorithm that you will implement
 		</summary>
