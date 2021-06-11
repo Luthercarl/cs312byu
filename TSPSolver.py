@@ -76,7 +76,7 @@ class TSPSolver:
 		algorithm</returns> 
 	'''
 
-	def gather(self, matrix, cities):
+	def dynamic(self, matrix, cities):
 
 		notInPath = [i for i in range(len(cities))]
 
@@ -90,9 +90,9 @@ class TSPSolver:
 				if j == i:
 					continue
 
-				if matrix[i,j] != math.inf and matrix[j,i] != math.inf:
-					edgePath = [(i,j), (j,i)] # this path is made up of the edges not the nodes
-					nodePath = [i,j]
+				if matrix[i][ j] != math.inf and matrix[j][ i] != math.inf:
+					edgePath = [(i, j), (j, i)]  # this path is made up of the edges not the nodes
+					nodePath = [i, j]
 					notInPath.remove(i)
 					notInPath.remove(j)
 					toBreak = True
@@ -106,8 +106,8 @@ class TSPSolver:
 
 			# find the edge that the node fits into best
 			for edge in edgePath:
-				originalCost = matrix[edge[0], edge[1]]
-				newCost = matrix[edge[0], node] + matrix[node, edge[1]]
+				originalCost = matrix[edge[0]] [edge[1]]
+				newCost = matrix[edge[0]][ node] + matrix[node][ edge[1]]
 				additionalCost = newCost - originalCost
 
 				if additionalCost < bestCost:
@@ -122,13 +122,10 @@ class TSPSolver:
 				del edgePath[edgeIndex + 2]
 				nodePath.insert(edgeIndex + 1, node)
 			else:
-				b = 0
-
-
+				notInPath.append(node)
+				notInPath[notInPath.index(node)] = -1
 		return nodePath
 
-	
-	
 	def greedy( self,time_allowance=60.0 ):
 		return self.greedy_wNode(time_allowance)
 		start_time = time.time()
@@ -368,7 +365,7 @@ class TSPSolver:
 								max_heap_len = len(heap)
 					count+=1
 		end_time = time.time()
-		results['cost'] = solution.bound if foundTour else bssf
+		results['cost'] = self.generateCost(solution.path) if foundTour else bssf
 		results['time'] = end_time - start_time
 		results['count'] = num_sul
 		if foundTour:
@@ -492,7 +489,7 @@ class TSPSolver:
 	def fancy( self,time_allowance=60.0 ):
 		start_time = time.time()
 		results = {}
-		default = self.greedy()
+
 		#greedy = self.greedy()
 		#lowest_cost = greedy['cost']
 		num_updates = 0
@@ -501,8 +498,8 @@ class TSPSolver:
 		num_sul = 0
 		count = 0
 		total_created = 0
-		twoOptNode = self.two_opt(self.passNode)
-		bssf = twoOptNode.cost#math.inf
+
+
 		finalnode = node()
 		heap = []
 		heapq.heapify(heap)
@@ -518,6 +515,19 @@ class TSPSolver:
 		currentCities = []
 		for x in range(0, len(masterMatrix)):
 			currentCities.append(x)
+		dynamicNode = node()
+		dynamicNode.path =  self.dynamic(masterMatrix,cities)
+
+		dynamicNode.bound =self.generateCost(dynamicNode.path)
+
+		bound = self.reduceMatrix(mutationMatrix,currentCities)
+
+		currentNode = node()
+		currentNode.current_city = 0
+		currentNode.bound = bound
+		bssf= self.two_opt(dynamicNode)
+		#twoOptNode = self.two_opt(self.passNode)
+		# math.inf
 
 		bound = self.reduceMatrix(mutationMatrix,currentCities)
 
@@ -575,14 +585,15 @@ class TSPSolver:
 								max_heap_len = len(heap)
 					count+=1
 		end_time = time.time()
-		results['cost'] = solution.bound if foundTour else bssf
+		results['cost'] = self.generateCost(solution.path) if foundTour else bssf
 		results['time'] = end_time - start_time
 		results['count'] = num_sul
 		if foundTour:
 			cityList = [cities[i] for i in solution.path]
 			results['soln'] = TSPSolution(cityList)
 		else:
-			results['soln'] = default['soln']
+			cityList = [cities[i] for i in dynamicNode.path]
+			results['soln'] = TSPSolution(cityList)
 
 		results['max'] = max_heap_len
 		results['total'] = total_created
@@ -605,6 +616,8 @@ class node:
 		self.path = path
 
 	def __lt__(self,obj1):
+		if type(obj1) == float:
+			return self.bound < obj1
 		return self.bound < obj1.bound
 
 
